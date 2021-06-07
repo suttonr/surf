@@ -5,7 +5,9 @@
 #define CONFIG_START 0x10
 #define NUM_SLOTS 4
 #define NUM_MOTORS 4
+#define HOME_TIME 10000
 
+// Data Types
 struct config_slot {
   char name[10]="SLOT";
   byte angle=10;
@@ -26,10 +28,26 @@ struct motor {
   uint16_t mills=0;
 };
 
-motor motors[4];
+// Globals
+motor motors[NUM_MOTORS];
 config running_config;
 int active_slot=0;
 
+void initMotors() {
+  motors[0].pinA=4;
+  motors[0].pinB=5;
+  motors[1].pinA=6;
+  motors[1].pinB=7;
+  motors[2].pinA=8;
+  motors[2].pinB=9;
+  motors[3].pinA=10;
+  motors[4].pinB=11;
+
+  for (int i=0;i<NUM_MOTORS;i++){
+    pinMode(motors[i].pinA,OUTPUT);
+    pinMode(motors[i].pinB,OUTPUT);
+  }
+}
 
 void writeConfig() {
   EEPROM.put(CONFIG_START, running_config);
@@ -60,28 +78,20 @@ void updateMotor(int m){
   }
 }
 
-void initMotors() {
-  motors[0].pinA=4;
-  motors[0].pinB=5;
-  motors[1].pinA=6;
-  motors[1].pinB=7;
-  motors[2].pinA=8;
-  motors[2].pinB=9;
-  motors[3].pinA=10;
-  motors[4].pinB=11;
-
-  for (int i=0;i<4;i++){
-    pinMode(motors[i].pinA,OUTPUT);
-    pinMode(motors[i].pinB,OUTPUT);
+void homeMotors() {
+  for (int i=0;i<NUM_MOTORS;i++){
+    motors[i].mills=HOME_TIME;
+    motors[i].dir=true;
+    motors[i].run=true;
     updateMotor(i);
   }
 }
 
 SIGNAL(TIMER0_COMPA_vect) {
-  for (int i=0;i<4;i++){
+  for (int i=0;i<NUM_MOTORS;i++){
     if (( motors[i].run ) && (motors[i].mills > 0 )) {
       motors[i].mills -= 1;
-    } else if ( ( motors[i].run ) && (motors[i].mills == 0 )) {
+    } else if (( motors[i].run ) && (motors[i].mills == 0 )) {
       motors[i].run = false;
       updateMotor(i);
       Serial.print("> Motor Stop ");
@@ -97,33 +107,19 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   initMotors();
+  homeMotors();
 }
 
-void togglePin(int pin){
-      int i;
-      i= digitalRead(pin);
-      Serial.print(pin);
-      
-      if (i==HIGH){
-         digitalWrite(pin,LOW);
-         Serial.write(" low\n");
-      } else {
-         digitalWrite(pin,HIGH);
-         Serial.write(" high\n");
-      }
-}
-char parseCommand() {
-
-}
 void writeName(String s){
   int slot = s.substring(0,1).toInt();
   Serial.print(">> slot write ");
   Serial.println(s.substring(1));        
   s.substring(2).toCharArray(running_config.slot[slot].name,10);
 }
+
 void printSlot(int slot){
   char outs[80];
-  sprintf(outs, "%01d:%03d:%03d:%03d:%s",
+  sprintf(outs, "S:%01d:%03d:%03d:%03d:%s",
     slot,
     running_config.slot[slot].angle,
     running_config.slot[slot].deploy,
@@ -132,6 +128,18 @@ void printSlot(int slot){
   );
   Serial.println(outs);
 }
+
+void printMotor(int m){
+  char outs[80];
+  sprintf(outs, "M:%01d:%01d:%01d:%05d",
+    m,
+    motors[m].run,
+    motors[m].dir,
+    motors[m].mills
+  );
+  Serial.println(outs);
+}
+
 void loop() {
   // put your main code here, to run repeatedly:
   int s[] = {0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -144,19 +152,16 @@ void loop() {
     Serial.println(inString[0]);
     switch (inString[0]) {
       case 'p':
-        Serial.println("> print");
+        Serial.println(">> print slots");
         for (int i=0;i<NUM_SLOTS;i++) {
           Serial.print(">> ");
           printSlot(i);
         }
         break;
       case 'l':
-        Serial.println("> print motor");
+        Serial.println(">> print motors");
         for (int i=0;i<NUM_MOTORS;i++) {
-          Serial.print(">> ");
-          Serial.print(motors[i].mills);
-          Serial.print(" ");
-          Serial.println(motors[i].run);
+          printMotor(i);
         }
         break;
       case 'i':
@@ -172,12 +177,18 @@ void loop() {
         Serial.println(">> write config");
         writeConfig();
         break;
+      case 'h':
+        Serial.println(">> home motors");
+        homeMotors();
+        break;
       case 'm':
         int m = inString.substring(1,2).toInt();
+        int d = inString.substring(2,3).toInt();
         Serial.print(">> start motor ");
         Serial.print(m);
         Serial.print(" ");
-        motors[m].mills=inString.substring(2).toInt();
+        motors[m].mills=inString.substring(3).toInt();
+        motors[m].dir= ( d > 0 );
         motors[m].run=true;
         Serial.println(motors[m].mills);
         break;
@@ -189,7 +200,7 @@ void loop() {
         char outs[80];
         sprintf(outs,"s:%x a:%x d:%x r:%x",slot,angle,deploy,retract);
         Serial.println(outs);
-        if ((slot < NUM_SLOTS)&&(inString.length()>11)) {
+        if ((slot < NUM_SLOTS) && (inString.length()>11)) {
           if ((angle>0)&&(deploy>0)&&(retract>0)) {
             Serial.print(">> slot write ");
             Serial.println(inString.substring(2));
