@@ -5,7 +5,7 @@ serial port at 115200 baud for commands
 
 # Circuit
 ## Motor
-Additional Level Shifting may be needed for relay coils depending on relay choice.
+Depending on relay choice addiontal level shifting may be needed between coils and arduino.
 ```
                                      Vm
                                       |
