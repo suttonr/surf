@@ -1,7 +1,34 @@
 # controller.ino
-Arduino sketch intended to control 4 DC linear actuators. Has provisons for 
+Arduino sketch intended to control 4 DC linear actuators via a relay H-BRIDGE. Has provisons for 
 storing configuration values into on EEPROM. By default listens on the first
 serial port at 115200 baud for commands
+
+# Circuit
+## Motor
+Additional Level Shifting may be needed for relay coils depending on relay choice.
+```
+                                     Vm
+                                      |
+                                      |
+                                      |
+                      +---------------+--------------+
+                      | NO                        NO |
+Motor.pinA-----++--+  +-+                          +-+ +--++------Motor.pinB
+               ++c |  +-+         +-------+        +-+ |c ++
+    +           |o |              |       |            |o |
+                |i |       +------+   M   +-------+    |i |
+               ++l |  +-+--+      |       |       ++-+ |l ++
+               ++--+  +-+         +-------+        +-+ +--++
+               |      | NC                        NC |     |
+               |      |                              |     |
+               |      |                              |     |
+               |      |                              |     |
+               |      |                              |     |
+               +------+---------------+--------------+-----+
+                                      |
+                                      |
+                                     GND
+```
 
 # Commands
 Commands all start with a lowercase alpha character
