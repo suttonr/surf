@@ -154,7 +154,6 @@ void loop() {
       case 'p':
         Serial.println(">> print slots");
         for (int i=0;i<NUM_SLOTS;i++) {
-          Serial.print(">> ");
           printSlot(i);
         }
         break;
