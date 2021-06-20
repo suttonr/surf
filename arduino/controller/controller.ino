@@ -77,13 +77,17 @@ void updateMotor(int m){
     digitalWrite(motors[m].pinB,LOW);
   }
 }
+void runMotor(int motor, bool dir, uint16_t  mills){
+    motors[motor].mills=mills;
+    motors[motor].dir=dir;
+    motors[motor].run=true;
+    updateMotor(motor);
+    printMotor(motor);
+}
 
 void homeMotors() {
   for (int i=0;i<NUM_MOTORS;i++){
-    motors[i].mills=HOME_TIME;
-    motors[i].dir=true;
-    motors[i].run=true;
-    updateMotor(i);
+    runMotor(i,true,HOME_TIME);
   }
 }
 
@@ -94,6 +98,7 @@ SIGNAL(TIMER0_COMPA_vect) {
     } else if (( motors[i].run ) && (motors[i].mills == 0 )) {
       motors[i].run = false;
       updateMotor(i);
+      printMotor(i);
       Serial.print("> Motor Stop ");
       Serial.println(i);
     }
@@ -184,12 +189,8 @@ void loop() {
         int m = inString.substring(1,2).toInt();
         int d = inString.substring(2,3).toInt();
         Serial.print(">> start motor ");
-        Serial.print(m);
-        Serial.print(" ");
-        motors[m].mills=inString.substring(3).toInt();
-        motors[m].dir= ( d > 0 );
-        motors[m].run=true;
-        Serial.println(motors[m].mills);
+        Serial.println(m);
+        runMotor(m,( d > 0 ),inString.substring(3).toInt());
         break;
       case 's':
         int slot = inString.substring(1,2).toInt();
