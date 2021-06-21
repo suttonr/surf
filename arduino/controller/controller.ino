@@ -69,8 +69,8 @@ void updateMotor(int m){
       digitalWrite(motors[m].pinA,LOW);
       digitalWrite(motors[m].pinB,HIGH);
     } else {
+      digitalWrite(motors[m].pinB,LOW); 
       digitalWrite(motors[m].pinA,HIGH);
-      digitalWrite(motors[m].pinB,LOW);   
     }
   } else {
     digitalWrite(motors[m].pinA,LOW);
