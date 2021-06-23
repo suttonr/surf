@@ -1,3 +1,4 @@
+> :warning: **Work in Progress**: Be very careful here!
 # controller.ino
 Arduino sketch intended to control 4 DC linear actuators via a relay H-BRIDGE. Has provisons for 
 storing configuration values into on EEPROM. By default listens on the first
