@@ -1,5 +1,4 @@
-**Work in Progress**: Be very careful here!
-{: .alert .alert-danger}
+> :warning: **Work in Progress**: Be very careful here!
 
 # surf
 Surf Controller
