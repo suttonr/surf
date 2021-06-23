@@ -47,8 +47,21 @@ Run motor 1, forward for 1s
 m1101000
 ```
 
+### Run Motor to Position
+Runs motor to a specific position
+```
+m<motor><position>
+```
+* Motor - 1 digit - Motor index
+* Position - 3 digits - 0-100 indicition percentage of range to move to
+#### Example
+Run motor 1, to 20%
+```
+m1020
+```
+
 ### Home Motors
-Run motors to the home posistion
+Run motors to the home posistion, and reset position to 0
 ```
 h
 ```
@@ -78,13 +91,16 @@ write a slot configuration to running config
 s<slot><angle><deploy><retract><name>
 ```
 * slot - 1 digit - slot number
-* angle - 3 digits - set angle
-* deploy - 3 digits - speed at which to deploy
-* retract - 3 digits - speed at which to retract
+* m0 position - 2 digits - position to set m0 to
+* m1 position - 2 digits - position to set m1 to
+* m2 position - 2 digits - position to set m2 to
+* m3 position - 2 digits - position to set m3 to
+* deploy - 2 digits - speed at which to deploy
+* retract - 2 digits - speed at which to retract
 * name - string - Text name for the slot
 #### Example
 ```
-s1045002010USER1
+s1112233440120USER1
 ```
 
 ## Print Commands
@@ -114,10 +130,11 @@ M:<motor>:<run>:<direction>:<mills>
 * Run - 1 digit - Motor status, 1=Running 0=Stoped
 * Direction - 1 digit - Motor Direction, 1=Forward 0=Backwards
 * Mills - 5 digits - Number of millisecconds the motor will run for, or runtime remaining
+* Position - 3 digits - Position of motor after current movement is complete
 
 #### Example
 ```
-M:0:1:1:00543
+M:0:1:1:00543:050
 ```
 
 ### Slot Details
@@ -126,11 +143,14 @@ Contains the configuration from a slot
 S:<slot>:<angle>:<deploy>:<retract>:<name>
 ```
 * slot - 1 digit - slot number
-* angle - 3 digits - set angle
-* deploy - 3 digits - speed at which to deploy
-* retract - 3 digits - speed at which to retract
+* m0 position - 2 digits - position to set m0 to
+* m1 position - 2 digits - position to set m1 to
+* m2 position - 2 digits - position to set m2 to
+* m3 position - 2 digits - position to set m3 to
+* deploy - 2 digits - speed at which to deploy
+* retract - 2 digits - speed at which to retract
 * name - string - Text name for the slot
 #### Example
 ```
-S:0:045:2:10:USER1
+S:0:11:22:33:44:02:10:USER1
 ```
