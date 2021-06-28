@@ -6,6 +6,7 @@
 #define NUM_SLOTS 4
 #define NUM_MOTORS 4
 #define HOME_TIME 10000
+#define HOME_DIR true
 
 // Data Types
 typedef struct config_slot {
@@ -72,7 +73,7 @@ void updateMotor(uint8_t m){
       digitalWrite(motors[m].pinA,LOW);
       digitalWrite(motors[m].pinB,HIGH);
     } else {
-      digitalWrite(motors[m].pinB,LOW); 
+      digitalWrite(motors[m].pinB,LOW);
       digitalWrite(motors[m].pinA,HIGH);
     }
   } else {
@@ -84,13 +85,28 @@ void runMotor(uint8_t motor, bool dir, uint16_t  mills){
     motors[motor].mills=mills;
     motors[motor].dir=dir;
     motors[motor].run=true;
+    int position = 0;
+    position = (int)mills / (int)running_config.time[motor];
+    if (motors[motor].dir != HOME_DIR){
+      position = (int)motors[motor].position + (int)position;
+    } else {
+      position = (int)motors[motor].position - (int)position;
+    }
+
+    if (position > 100){
+      motors[motor].position = 100;
+    } else if (position < 0) {
+      motors[motor].position = 0;
+    } else {
+      motors[motor].position = abs(position);
+    }
     updateMotor(motor);
     printMotor(motor);
 }
 
 void runMotor(uint8_t motor, uint8_t position){ 
     if ((position >= 0) && (position <= 100)){
-      runMotor( motor, ( motors[motor].position > position ), 
+      runMotor( motor, ( motors[motor].position < position ), 
         abs(motors[motor].position - position) * running_config.time[motor]);
       motors[motor].position = position;
     }
@@ -99,7 +115,7 @@ void runMotor(uint8_t motor, uint8_t position){
 void homeMotors() {
   for (uint8_t i=0;i<NUM_MOTORS;i++){
     motors[i].homing=true;
-    runMotor(i,true,HOME_TIME);
+    runMotor(i,HOME_DIR,HOME_TIME);
   }
 }
 
@@ -115,8 +131,6 @@ SIGNAL(TIMER0_COMPA_vect) {
       }
       updateMotor(i);
       printMotor(i);
-      Serial.print("> Motor Stop ");
-      Serial.println(i);
     }
   }
 }
@@ -218,15 +232,11 @@ void loop() {
       } else if (inString[0]=='m') {
         uint8_t m = inString.substring(1,2).toInt();
         uint8_t d = inString.substring(2,3).toInt();
-        Serial.print(">> start motor ");
-        Serial.println(m);
         runMotor(m,( d > 0 ),inString.substring(3).toInt());
       } else if (inString[0]=='n') {
         uint8_t m = inString.substring(1,2).toInt();
         uint8_t pos = inString.substring(2).toInt();
         if ((m < NUM_MOTORS) && (pos >= 0) && (pos <= 100) ){
-          Serial.print(">> start motor ");
-          Serial.println(m);
           runMotor(m,pos);
         }
       } else if (inString[0]=='s') {
