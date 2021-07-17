@@ -89,7 +89,7 @@ w
 ### Configure Slot
 write a slot configuration to running config
 ```
-s<slot><angle><deploy><retract><name>
+c<slot><m0><m1><m2><m3><deploy><retract><name>
 ```
 * slot - 1 digit - slot number
 * m0 position - 2 digits - position to set m0 to
@@ -104,9 +104,25 @@ s<slot><angle><deploy><retract><name>
 s1112233440120USER1
 ```
 
+### Configure Timings
+write timing config to running config
+```
+t0<m0><m1><m2><m3>
+```
+* slot - 1 digit - slot number
+* m0 time (ms) - 3 digits - (ms) per % of movement
+* m1 time (ms) - 3 digits - (ms) per % of movement
+* m2 time (ms) - 3 digits - (ms) per % of movement
+* m3 time (ms) - 3 digits - (ms) per % of movement
+
+#### Example
+```
+t0100100100100
+```
+
 ## Print Commands
 ### Print Slots
-Outputs all slot configuration
+Outputs all configuration and motor status
 ```
 p
 ```
@@ -141,7 +157,7 @@ M:0:1:1:00543:050
 ### Slot Details
 Contains the configuration from a slot
 ```
-S:<slot>:<angle>:<deploy>:<retract>:<name>
+S:<slot>:<m0>:<m1>:<m2>:<m3>:<deploy>:<retract>:<name>
 ```
 * slot - 1 digit - slot number
 * m0 position - 2 digits - position to set m0 to

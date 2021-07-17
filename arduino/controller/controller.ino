@@ -35,7 +35,7 @@ typedef struct motor {
 motor motors[NUM_MOTORS];
 config running_config;
 uint8_t active_slot=0;
-uint8_t surf=0;
+uint8_t active_surf=0;
 
 void initMotors() {
   motors[0].pinA=4;
@@ -117,6 +117,22 @@ void homeMotors() {
     motors[i].homing=true;
     runMotor(i,HOME_DIR,HOME_TIME);
   }
+  active_surf=0;
+}
+
+void surf(bool left){
+  for (uint8_t m=0;m<NUM_MOTORS;m++){
+    if ( left && (m<(NUM_MOTORS/2)) ){
+      runMotor(m,running_config.slot[active_slot].positions[m]);
+      active_surf=1;
+    } else if ( !left && (m>=(NUM_MOTORS/2)) ){
+      runMotor(m,running_config.slot[active_slot].positions[m]);
+      active_surf=2;
+    } else {
+      motors[m].homing=true;
+      runMotor(m,HOME_DIR,HOME_TIME);
+    }
+  }
 }
 
 SIGNAL(TIMER0_COMPA_vect) {
@@ -146,7 +162,7 @@ void printConfig(){
   char outs[40];
   sprintf(outs, "C:0");
   for (uint8_t m=0;m<NUM_MOTORS;m++){
-    sprintf(outs,"%s:%02d", outs, running_config.time[m]);
+    sprintf(outs,"%s:%03d", outs, running_config.time[m]);
   }
   Serial.println(outs);
 }
@@ -183,12 +199,12 @@ void setup() {
   TIMSK0 |= _BV(OCIE0A);
 
   Serial.begin(115200);
-  readConfig();
+  Serial.println(">> Booting");
   initMotors();
+  delay(10);
+  readConfig();
   homeMotors();
-  for (uint8_t i=0;i<NUM_MOTORS;i++){
-    running_config.time[i] = 20;
-  }
+  Serial.println(">> Setup Complete, homing motors");
 }
 
 void loop() {
@@ -239,31 +255,21 @@ void loop() {
         if ((m < NUM_MOTORS) && (pos >= 0) && (pos <= 100) ){
           runMotor(m,pos);
         }
-      } else if (inString[0]=='s') {
-         Serial.println(inString);
-         Serial.flush();
+      } else if (inString[0]=='c') {
+         Serial.println(">> config slot");
          unsigned int strptr=1;
          uint8_t slot;
          slot = inString.substring(1,2).toInt();
-         Serial.println(slot);
-         Serial.flush();
          byte positions[NUM_MOTORS] = {0};
          for ( uint8_t a=0;a<NUM_MOTORS;a++ ) {
            positions[a] = inString.substring(a*2+2,(a+1)*2+2).toInt();
            strptr = (a+1)*2+2;
-           Serial.println(positions[a]);
-           Serial.flush();
          }
-         Serial.println(inString.substring(strptr,strptr+2).toInt());
          uint8_t deploy = 5;
          deploy = (uint8_t)inString.substring(strptr,strptr+2).toInt();
          strptr += 2;
-         Serial.print("d: ");
-         Serial.println(deploy);
          uint8_t retract = inString.substring(strptr,strptr+2).toInt();
          strptr += 2;
-         Serial.println(retract);
-         Serial.println(inString.length());
          if ((slot < NUM_SLOTS) && (inString.length()>strptr)) {
            if ((positions[0]>0)&&(deploy>0)&&(retract>0)) {
              Serial.print(">> slot write ");
@@ -272,6 +278,30 @@ void loop() {
              running_config.slot[slot].deploy = deploy;
              running_config.slot[slot].retract = retract;
              inString.substring(strptr).toCharArray(running_config.slot[slot].name,strptr);
+           }
+         }
+      } else if (inString[0]=='s') {
+        if ( inString.substring(1,2)[0] == 'l' ){
+          Serial.println(">> surf left");
+          surf(true);
+        } else if ( inString.substring(1,2)[0] == 'r' ){
+          Serial.println(">> surf right");
+          surf(false);
+        } 
+      } else if (inString[0]=='t') {
+         unsigned int strptr=1;
+         uint8_t slot;
+         slot = inString.substring(1,2).toInt();
+         uint16_t positions[NUM_MOTORS] = {0};
+         for ( uint8_t a=0;a<NUM_MOTORS;a++ ) {
+           positions[a] = inString.substring(a*3+2,(a+1)*3+2).toInt();
+           strptr = (a+1)*3+2;
+         }
+         if ((slot < NUM_SLOTS) && (inString.length()>=strptr)) {
+           if ( positions[0]>0 ) {
+             Serial.print(">> config write ");
+             Serial.println(inString.substring(2));
+             memcpy(running_config.time, positions, sizeof(positions[0])*NUM_MOTORS);
            }
          }
       } else {
