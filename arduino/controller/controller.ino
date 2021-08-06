@@ -1,19 +1,25 @@
 
 #include <stdlib.h>
 #include <EEPROM.h>
+#include <SoftwareSerial.h>
+#include <TinyGPS.h>
 
 #define CONFIG_START 0x10
 #define NUM_SLOTS 4
 #define NUM_MOTORS 4
 #define HOME_TIME 10000
 #define HOME_DIR true
+#define NEMA_GPS
+#define TERMBAUD 115200
+#define GPSBAUD 9600
+#define SPEEDHOLD 10
 
 // Data Types
 typedef struct config_slot {
   char name[10] = "SLOT";
   byte positions[NUM_MOTORS] = {0};
-  byte deploy = 1;
-  byte retract = 10;
+  byte deploy = 6;
+  byte retract = 40;
 };
 
 typedef struct config {
@@ -36,6 +42,12 @@ motor motors[NUM_MOTORS];
 config running_config;
 uint8_t active_slot=0;
 uint8_t active_surf=0;
+uint8_t surf_armed=0;
+SoftwareSerial GPS_Serial(12,13); // RX only
+TinyGPS GPS;
+int speed=0;
+unsigned short gps_sent=0;
+uint8_t speedState[3] = {0,0,0};
 
 void initMotors() {
   motors[0].pinA=4;
@@ -45,7 +57,7 @@ void initMotors() {
   motors[2].pinA=8;
   motors[2].pinB=9;
   motors[3].pinA=10;
-  motors[4].pinB=11;
+  motors[3].pinB=11;
 
   for (uint8_t i=0;i<NUM_MOTORS;i++){
     pinMode(motors[i].pinA,OUTPUT);
@@ -53,6 +65,7 @@ void initMotors() {
   }
 }
 
+/* Configuation */
 void writeConfig() {
   EEPROM.put(CONFIG_START, running_config);
 }
@@ -67,6 +80,14 @@ void resetConfig() {
   EEPROM.get(CONFIG_START, running_config);
 }
 
+void writeName(String s){
+  uint8_t slot = s.substring(0,1).toInt();
+  Serial.print(">> slot write ");
+  Serial.println(s.substring(1));        
+  s.substring(2).toCharArray(running_config.slot[slot].name,10);
+}
+
+/* Motor Control */
 void updateMotor(uint8_t m){
   if (motors[m].run) {
     if (motors[m].dir) {
@@ -81,6 +102,7 @@ void updateMotor(uint8_t m){
     digitalWrite(motors[m].pinB,LOW);
   }
 }
+
 void runMotor(uint8_t motor, bool dir, uint16_t  mills){
     motors[motor].mills=mills;
     motors[motor].dir=dir;
@@ -106,7 +128,7 @@ void runMotor(uint8_t motor, bool dir, uint16_t  mills){
 
 void runMotor(uint8_t motor, uint8_t position){ 
     if ((position >= 0) && (position <= 100)){
-      runMotor( motor, ( motors[motor].position < position ), 
+      runMotor( motor, ( motors[motor].position > position ), 
         abs(motors[motor].position - position) * running_config.time[motor]);
       motors[motor].position = position;
     }
@@ -120,6 +142,7 @@ void homeMotors() {
   active_surf=0;
 }
 
+/* Surf Control */
 void surf(bool left){
   for (uint8_t m=0;m<NUM_MOTORS;m++){
     if ( left && (m<(NUM_MOTORS/2)) ){
@@ -135,6 +158,63 @@ void surf(bool left){
   }
 }
 
+void incrmentState(uint8_t s){
+  for (uint8_t i=0;i<3;i++){
+    if ((i==s) && (speedState[s] < 255)){
+      speedState[i] = speedState[i] + 1;
+    } else if (i!=s){
+      speedState[i] = 0;
+    }
+  }
+}
+
+void checkSpeed(int s){
+  if ((s > running_config.slot[active_slot].deploy) && 
+      (s < running_config.slot[active_slot].retract)){
+       incrmentState(1);
+  } else if (s < running_config.slot[active_slot].deploy) {
+    incrmentState(0);
+  } else {
+    incrmentState(2);
+  }
+
+  if ((active_surf == 0 ) && (surf_armed == 1) && (speedState[1] > 30)){
+    Serial.println(">> gpssurf left");
+    surf(true);
+  } else if ((active_surf == 0 ) && (surf_armed == 2) && (speedState[1] > 30)){
+    Serial.println(">> gpssurf right");
+    surf(false);
+  } else if ( (active_surf == 1 ) && 
+    (surf_armed > 0) && 
+    ((speedState[0] > SPEEDHOLD) || (speedState[2] > SPEEDHOLD)) ){
+      Serial.println(">> gpssurf retract");
+      homeMotors();
+      active_surf=0;
+      surf_armed=0;
+  }
+}
+
+/* For binary GPS
+bool readGPSCommand(byte data[]){
+  bool ret = false;
+  byte sum = 0x55;
+  for (int i=0;i<10;i++){
+    while (GPS_Serial.available() <= 0){
+      delay(1);
+    }
+    data[i] = GPS_Serial.read();
+    if ( i < 9 ){
+      sum = sum + data[i];
+    }
+  }
+  if (data[9] == sum){
+    ret = true;
+  } 
+  return ret;
+}
+*/
+
+/* Timer Interupt (once per ms) */
 SIGNAL(TIMER0_COMPA_vect) {
   for (uint8_t i=0;i<NUM_MOTORS;i++){
     if (( motors[i].run ) && (motors[i].mills > 0 )) {
@@ -151,19 +231,25 @@ SIGNAL(TIMER0_COMPA_vect) {
   }
 }
 
-void writeName(String s){
-  uint8_t slot = s.substring(0,1).toInt();
-  Serial.print(">> slot write ");
-  Serial.println(s.substring(1));        
-  s.substring(2).toCharArray(running_config.slot[slot].name,10);
-}
-
+/* Print */
 void printConfig(){
   char outs[40];
   sprintf(outs, "C:0");
   for (uint8_t m=0;m<NUM_MOTORS;m++){
     sprintf(outs,"%s:%03d", outs, running_config.time[m]);
   }
+  Serial.println(outs);
+}
+
+void printStatus(){
+  char outs[40];
+
+  sprintf(outs,"X:%03d,%03d,%03d,%03d,%03d",
+    speed,speedState[0],speedState[1],speedState[2],gps_sent);
+  Serial.println(outs);
+
+  sprintf(outs,"Y:%03d,%03d,%03d",
+    active_surf,surf_armed,active_slot);
   Serial.println(outs);
 }
 
@@ -193,23 +279,57 @@ void printMotor(uint8_t m){
   Serial.println(outs);
 }
 
+/* Micro Init */
 void setup() {
   // Setup Timer
   OCR0A = 0x01;
   TIMSK0 |= _BV(OCIE0A);
 
-  Serial.begin(115200);
+  Serial.begin(TERMBAUD);
   Serial.println(">> Booting");
+  GPS_Serial.begin(GPSBAUD);
   initMotors();
   delay(10);
   readConfig();
   homeMotors();
+  incrmentState(3);
   Serial.println(">> Setup Complete, homing motors");
+
 }
 
+/* Main program loop */
 void loop() {
-  // put your main code here, to run repeatedly:
   String inString;
+  int new_speed;
+  int new_sent;
+  unsigned long chars = 0;
+  unsigned short sentences = 0, failed = 0;
+
+  while (GPS_Serial.available()) {
+    GPS.encode(GPS_Serial.read());
+    /* For binary GPS
+    byte gpsByte = 0x0;
+    byte data[10];
+    int32_t speed=0;
+    gpsByte = GPS_Serial.read();
+    if (gpsByte == 0x55){
+      if (readGPSCommand(data)){
+        Serial.println(data[0], HEX);
+      }
+    }
+    */
+  }
+  new_speed = GPS.f_speed_kmph();
+  GPS.stats(&chars,&sentences,&failed);
+  if (gps_sent != sentences) {
+    gps_sent = sentences;
+    checkSpeed(new_speed);
+    if (new_speed != speed) {
+      speed = new_speed;
+      printStatus();
+    }
+  }
+
   if (Serial.available() > 0) {
     // get incoming string:
     inString = Serial.readString();
@@ -220,6 +340,7 @@ void loop() {
       if (inString[0]=='p'){
         Serial.println(">> print config");
         printConfig();
+        printStatus();
         Serial.println(">> print slots");
         for (uint8_t i=0;i<NUM_SLOTS;i++) {
           printSlot(i);
@@ -281,12 +402,24 @@ void loop() {
            }
          }
       } else if (inString[0]=='s') {
+        surf_armed = 0;
         if ( inString.substring(1,2)[0] == 'l' ){
           Serial.println(">> surf left");
           surf(true);
         } else if ( inString.substring(1,2)[0] == 'r' ){
           Serial.println(">> surf right");
           surf(false);
+        } 
+      } else if (inString[0]=='a') {
+        if ( inString.substring(1,2)[0] == 'l' ){
+          Serial.println(">> armed left");
+          surf_armed = 1;
+        } else if ( inString.substring(1,2)[0] == 'r' ){
+          Serial.println(">> armed right");
+          surf_armed = 2;
+        } else if ( inString.substring(1,2)[0] == 'c' ){
+          Serial.println(">> disarmed");
+          surf_armed = 0;
         } 
       } else if (inString[0]=='t') {
          unsigned int strptr=1;
