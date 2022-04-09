@@ -24,6 +24,7 @@ typedef struct config_slot {
 
 typedef struct config {
   uint16_t time[NUM_MOTORS] = {10,10,10,10};
+  uint8_t launch[NUM_MOTORS] = {10,10,10,10};
   config_slot slot[NUM_SLOTS];
 };
 
@@ -194,26 +195,6 @@ void checkSpeed(int s){
   }
 }
 
-/* For binary GPS
-bool readGPSCommand(byte data[]){
-  bool ret = false;
-  byte sum = 0x55;
-  for (int i=0;i<10;i++){
-    while (GPS_Serial.available() <= 0){
-      delay(1);
-    }
-    data[i] = GPS_Serial.read();
-    if ( i < 9 ){
-      sum = sum + data[i];
-    }
-  }
-  if (data[9] == sum){
-    ret = true;
-  } 
-  return ret;
-}
-*/
-
 /* Timer Interupt (once per ms) */
 SIGNAL(TIMER0_COMPA_vect) {
   for (uint8_t i=0;i<NUM_MOTORS;i++){
@@ -307,17 +288,6 @@ void loop() {
 
   while (GPS_Serial.available()) {
     GPS.encode(GPS_Serial.read());
-    /* For binary GPS
-    byte gpsByte = 0x0;
-    byte data[10];
-    int32_t speed=0;
-    gpsByte = GPS_Serial.read();
-    if (gpsByte == 0x55){
-      if (readGPSCommand(data)){
-        Serial.println(data[0], HEX);
-      }
-    }
-    */
   }
   new_speed = GPS.f_speed_kmph();
   GPS.stats(&chars,&sentences,&failed);
@@ -345,11 +315,6 @@ void loop() {
         for (uint8_t i=0;i<NUM_SLOTS;i++) {
           printSlot(i);
         }
-        Serial.println(">> print motors");
-        for (uint8_t i=0;i<NUM_MOTORS;i++) {
-          printMotor(i);
-        }
-      } else if (inString[0]=='l') {
         Serial.println(">> print motors");
         for (uint8_t i=0;i<NUM_MOTORS;i++) {
           printMotor(i);
@@ -432,9 +397,25 @@ void loop() {
          }
          if ((slot < NUM_SLOTS) && (inString.length()>=strptr)) {
            if ( positions[0]>0 ) {
-             Serial.print(">> config write ");
+             Serial.print(">> time write ");
              Serial.println(inString.substring(2));
              memcpy(running_config.time, positions, sizeof(positions[0])*NUM_MOTORS);
+           }
+         }
+      } else if (inString[0]=='l') {
+         unsigned int strptr=1;
+         uint8_t slot;
+         slot = inString.substring(1,2).toInt();
+         uint16_t positions[NUM_MOTORS] = {0};
+         for ( uint8_t a=0;a<NUM_MOTORS;a++ ) {
+           positions[a] = inString.substring(a*3+2,(a+1)*3+2).toInt();
+           strptr = (a+1)*3+2;
+         }
+         if ((slot < NUM_SLOTS) && (inString.length()>=strptr)) {
+           if ( positions[0]>0 ) {
+             Serial.print(">> launch write ");
+             Serial.println(inString.substring(2));
+             memcpy(running_config.launch, positions, sizeof(positions[0])*NUM_MOTORS);
            }
          }
       } else {
