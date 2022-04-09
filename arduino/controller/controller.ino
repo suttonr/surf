@@ -7,7 +7,7 @@
 #define CONFIG_START 0x10
 #define NUM_SLOTS 4
 #define NUM_MOTORS 4
-#define HOME_TIME 10000
+#define HOME_TIME 4000
 #define HOME_DIR true
 #define NEMA_GPS
 #define TERMBAUD 115200
@@ -23,7 +23,7 @@ typedef struct config_slot {
 };
 
 typedef struct config {
-  uint16_t time[NUM_MOTORS] = {10,10,10,10};
+  uint16_t time[NUM_MOTORS] = {23,33,33,23};
   uint8_t launch[NUM_MOTORS] = {10,10,10,10};
   config_slot slot[NUM_SLOTS];
 };
