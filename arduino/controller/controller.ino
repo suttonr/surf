@@ -146,10 +146,10 @@ void homeMotors() {
 /* Surf Control */
 void surf(bool left){
   for (uint8_t m=0;m<NUM_MOTORS;m++){
-    if ( left && (m<(NUM_MOTORS/2)) ){
+    if ( !left && (m<(NUM_MOTORS/2)) ){
       runMotor(m,running_config.slot[active_slot].positions[m]);
       active_surf=1;
-    } else if ( !left && (m>=(NUM_MOTORS/2)) ){
+    } else if ( left && (m>=(NUM_MOTORS/2)) ){
       runMotor(m,running_config.slot[active_slot].positions[m]);
       active_surf=2;
     } else {
