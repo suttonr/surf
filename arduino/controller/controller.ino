@@ -43,6 +43,7 @@ motor motors[NUM_MOTORS];
 config running_config;
 uint8_t active_slot=0;
 uint8_t active_surf=0;
+uint8_t active_launch=0;
 uint8_t surf_armed=0;
 SoftwareSerial GPS_Serial(12,13); // RX only
 TinyGPS GPS;
@@ -141,6 +142,7 @@ void homeMotors() {
     runMotor(i,HOME_DIR,HOME_TIME);
   }
   active_surf=0;
+  active_launch=0;
 }
 
 /* Surf Control */
@@ -149,13 +151,23 @@ void surf(bool left){
     if ( !left && (m<(NUM_MOTORS/2)) ){
       runMotor(m,running_config.slot[active_slot].positions[m]);
       active_surf=1;
+      active_launch=0;
     } else if ( left && (m>=(NUM_MOTORS/2)) ){
       runMotor(m,running_config.slot[active_slot].positions[m]);
       active_surf=2;
+      active_launch=0;
     } else {
       motors[m].homing=true;
       runMotor(m,HOME_DIR,HOME_TIME);
     }
+  }
+}
+
+void launch(){
+  for (uint8_t m=0;m<NUM_MOTORS;m++){
+      runMotor(m,running_config.launch[m]);
+      active_surf=0;
+      active_launch=1;
   }
 }
 
@@ -220,17 +232,22 @@ void printConfig(){
     sprintf(outs,"%s:%03d", outs, running_config.time[m]);
   }
   Serial.println(outs);
+  sprintf(outs, "L:0");
+  for (uint8_t m=0;m<NUM_MOTORS;m++){
+    sprintf(outs,"%s:%03d", outs, running_config.launch[m]);
+  }
+  Serial.println(outs);
 }
 
 void printStatus(){
   char outs[40];
 
-  sprintf(outs,"X:%03d,%03d,%03d,%03d,%03d",
+  sprintf(outs,"X:%03d:%03d:%03d:%03d:%03d",
     speed,speedState[0],speedState[1],speedState[2],gps_sent);
   Serial.println(outs);
 
-  sprintf(outs,"Y:%03d,%03d,%03d",
-    active_surf,surf_armed,active_slot);
+  sprintf(outs,"Y:%03d:%03d:%03d:%03d",
+    active_surf,surf_armed,active_slot,active_launch);
   Serial.println(outs);
 }
 
@@ -331,6 +348,7 @@ void loop() {
       } else if (inString[0]=='h') {
         Serial.println(">> home motors");
         homeMotors();
+        printStatus();
       } else if (inString[0]=='m') {
         uint8_t m = inString.substring(1,2).toInt();
         uint8_t d = inString.substring(2,3).toInt();
@@ -365,6 +383,7 @@ void loop() {
              running_config.slot[slot].retract = retract;
              inString.substring(strptr).toCharArray(running_config.slot[slot].name,strptr);
            }
+           printSlot(slot);
          }
       } else if (inString[0]=='s') {
         surf_armed = 0;
@@ -375,6 +394,7 @@ void loop() {
           Serial.println(">> surf right");
           surf(false);
         } 
+        printStatus();
       } else if (inString[0]=='a') {
         if ( inString.substring(1,2)[0] == 'l' ){
           Serial.println(">> armed left");
@@ -386,6 +406,7 @@ void loop() {
           Serial.println(">> disarmed");
           surf_armed = 0;
         } 
+        printStatus();
       } else if (inString[0]=='t') {
          unsigned int strptr=1;
          uint8_t slot;
@@ -395,32 +416,40 @@ void loop() {
            positions[a] = inString.substring(a*3+2,(a+1)*3+2).toInt();
            strptr = (a+1)*3+2;
          }
-         if ((slot < NUM_SLOTS) && (inString.length()>=strptr)) {
+         if ((slot < NUM_SLOTS) && (inString.length()>=(strptr-1))) {
            if ( positions[0]>0 ) {
              Serial.print(">> time write ");
              Serial.println(inString.substring(2));
+             
              memcpy(running_config.time, positions, sizeof(positions[0])*NUM_MOTORS);
            }
+           printConfig();
          }
       } else if (inString[0]=='l') {
          unsigned int strptr=1;
          uint8_t slot;
          slot = inString.substring(1,2).toInt();
-         uint16_t positions[NUM_MOTORS] = {0};
+         uint8_t positions[NUM_MOTORS] = {0};
          for ( uint8_t a=0;a<NUM_MOTORS;a++ ) {
            positions[a] = inString.substring(a*3+2,(a+1)*3+2).toInt();
            strptr = (a+1)*3+2;
          }
-         if ((slot < NUM_SLOTS) && (inString.length()>=strptr)) {
+         if ((slot < NUM_SLOTS) && (inString.length()>=(strptr-1))) {
            if ( positions[0]>0 ) {
              Serial.print(">> launch write ");
              Serial.println(inString.substring(2));
              memcpy(running_config.launch, positions, sizeof(positions[0])*NUM_MOTORS);
            }
+           printConfig();
          }
+      } else if (inString[0]=='k') {
+        Serial.println(">> launch");
+        launch();
+        printStatus();
       } else {
         Serial.print("> default ");
         Serial.println(inString);
-      } 
+      }
+      printStatus();
    }
 }
