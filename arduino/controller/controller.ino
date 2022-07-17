@@ -12,7 +12,7 @@
 #define NEMA_GPS
 #define TERMBAUD 115200
 #define GPSBAUD 9600
-#define SPEEDHOLD 10
+#define SPEEDHOLD 4
 
 // Data Types
 typedef struct config_slot {
@@ -191,13 +191,13 @@ void checkSpeed(int s){
     incrmentState(2);
   }
 
-  if ((active_surf == 0 ) && (surf_armed == 1) && (speedState[1] > 30)){
+  if ((active_surf == 0 ) && (surf_armed == 1) && (speedState[1] > SPEEDHOLD)){
     Serial.println(">> gpssurf left");
     surf(true);
-  } else if ((active_surf == 0 ) && (surf_armed == 2) && (speedState[1] > 30)){
+  } else if ((active_surf == 0 ) && (surf_armed == 2) && (speedState[1] > SPEEDHOLD)){
     Serial.println(">> gpssurf right");
     surf(false);
-  } else if ( (active_surf == 1 ) && 
+  } else if ( (active_surf > 0 ) && 
     (surf_armed > 0) && 
     ((speedState[0] > SPEEDHOLD) || (speedState[2] > SPEEDHOLD)) ){
       Serial.println(">> gpssurf retract");
@@ -306,7 +306,7 @@ void loop() {
   while (GPS_Serial.available()) {
     GPS.encode(GPS_Serial.read());
   }
-  new_speed = GPS.f_speed_kmph();
+  new_speed = GPS.f_speed_kmph()/1.609;
   GPS.stats(&chars,&sentences,&failed);
   if (gps_sent != sentences) {
     gps_sent = sentences;
