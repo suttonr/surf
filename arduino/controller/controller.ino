@@ -203,7 +203,7 @@ void checkSpeed(int s){
       Serial.println(">> gpssurf retract");
       homeMotors();
       active_surf=0;
-      surf_armed=0;
+      // surf_armed=0;
   }
 }
 
@@ -374,8 +374,8 @@ void loop() {
          strptr += 2;
          uint8_t retract = inString.substring(strptr,strptr+2).toInt();
          strptr += 2;
-         if ((slot < NUM_SLOTS) && (inString.length()>strptr)) {
-           if ((positions[0]>0)&&(deploy>0)&&(retract>0)) {
+         if ((slot < NUM_SLOTS) && (inString.length()>=strptr)) {
+           if ((deploy>0)&&(retract>0)) {
              Serial.print(">> slot write ");
              Serial.println(inString.substring(2));
              memcpy(running_config.slot[slot].positions, positions, sizeof(positions[0])*NUM_MOTORS);
@@ -407,6 +407,13 @@ void loop() {
           surf_armed = 0;
         } 
         printStatus();
+      } else if (inString[0]=='e') {
+        uint8_t slot;
+        slot = inString.substring(1,2).toInt();
+        active_slot = slot;
+        Serial.print(">> active slot set ");
+        Serial.println(active_slot);
+        printStatus();
       } else if (inString[0]=='t') {
          unsigned int strptr=1;
          uint8_t slot;
@@ -426,22 +433,20 @@ void loop() {
            printConfig();
          }
       } else if (inString[0]=='l') {
-         unsigned int strptr=1;
-         uint8_t slot;
-         slot = inString.substring(1,2).toInt();
-         uint8_t positions[NUM_MOTORS] = {0};
-         for ( uint8_t a=0;a<NUM_MOTORS;a++ ) {
-           positions[a] = inString.substring(a*3+2,(a+1)*3+2).toInt();
-           strptr = (a+1)*3+2;
-         }
-         if ((slot < NUM_SLOTS) && (inString.length()>=(strptr-1))) {
-           if ( positions[0]>0 ) {
-             Serial.print(">> launch write ");
-             Serial.println(inString.substring(2));
-             memcpy(running_config.launch, positions, sizeof(positions[0])*NUM_MOTORS);
-           }
+        unsigned int strptr=1;
+        uint8_t slot;
+        slot = inString.substring(1,2).toInt();
+        uint8_t positions[NUM_MOTORS] = {0};
+        for ( uint8_t a=0;a<NUM_MOTORS;a++ ) {
+          positions[a] = inString.substring(a*3+2,(a+1)*3+2).toInt();
+          strptr = (a+1)*3+2;
+        }
+        if ((slot < NUM_SLOTS) && (inString.length()>=(strptr-1))) {
+           Serial.print(">> launch write ");
+           Serial.println(inString.substring(2));
+           memcpy(running_config.launch, positions, sizeof(positions[0])*NUM_MOTORS);
            printConfig();
-         }
+        }
       } else if (inString[0]=='k') {
         Serial.println(">> launch");
         launch();
